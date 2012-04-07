@@ -5,13 +5,32 @@ var height = canvas.height;
 var width = canvas.width;
 
 var MalletRadius = 30;
-var PuckRadius = 15;
 var DIRECTION;
 var COLLIDEDISTANCE = 1;
 var goalWidth = 160;
 var play = false;
 var ballSpeed = 5;
 var FPS = 35;
+
+closestpointonline = function(lx1, ly1, lx2, ly2, x0, y0){ 
+     A1 = ly2 - ly1; 
+     B1 = lx1 - lx2; 
+     C1 = (ly2 - ly1)*lx1 + (lx1 - lx2)*ly1; 
+     C2 = -B1*x0 + A1*y0; 
+     det = A1*A1 - -B1*B1; 
+     cx = 0; 
+     cy = 0; 
+     if (det !== 0){ 
+         cx = (float)((A1*C1 - B1*C2)/det); 
+         cy = (float)((A1*C2 - -B1*C1)/det); 
+     }
+     else{ 
+         cx = x0; 
+         cy = y0; 
+     } 
+     return {x:cx, y:cy}; 
+};
+
 
 function draw() {
 
@@ -24,9 +43,10 @@ function draw() {
 function Puck() {
 		this.x = width/2;
 		this.y = height/2;
-		this.xDirection=-1;
-		this.yDirection=1;
-		this.speed=0;
+		this.velocityX = 0;
+		this.velocityY = 0;
+		this.mass = 10;
+		this.radius = 15;
 	}
 
 Puck.prototype = {
@@ -55,22 +75,15 @@ Puck.prototype = {
          this.onBoundHit();
       }
   },
-  isColliding: function() {
-		var xd = this.x - Game.mallet.x;
-		var yd = this.y - Game.mallet.y;
-
-		var sumRadius = PuckRadius + MalletRadius;
-		var sqrRadius = sumRadius * sumRadius;
-      
-		return (xd * xd) + (yd * yd) <= sqrRadius ? true : false;
-  },
   resolveCollide: function() {
-		var delta = new Vector2D(this.x, this.y).subtract(new Vector2D(Game.mallet.x, Game.mallet.y));
-		var d = delta.length;
-		var mtd = delta.multiply(((PuckRadius + MalletRadius)-d)/d);
-		this.speed=5;
-		this.xDirection = this.xDirection == 1 ? this.xDirection=-1 : this.xDirection=1;
-		this.yDirection = this.yDirection == 1 ? this.yDirection=-1 : this.yDirection=1;	
+  	    var d = closestpointonline(this.x, this.y, this.x + this.vx, this.y + this.vy, Game.mallet.x, Game.mallet.y);
+        var closestdistsq = Math.pow(this.x - d.x, 2) + Math.pow(this.y - d.y, 2);
+        if ( closestdistsq <= Math.pow(Game.mallet.radius + Game.mallet.radius, 2) ) {
+  	        var backdist = Math.sqrt(Math.pow(this.radius + Game.mallet.radius, 2) - closestdistsq);
+            var movementvectorlength = Math.sqrt(Math.pow(this.vx, 2) + Math.pow(this.vy, 2));
+            var c_x = d.x - backdist * (this.vx / movementvectorlength);
+            var c_y = d.y - backdist * (this.vy / movementvectorlength);
+	
   },
   onBoundHit: function() {
       if (this.speed >= 4) this.speed-=this.speed*Game.puckDecreaseRate;
@@ -79,7 +92,7 @@ Puck.prototype = {
 		this.x = this.x + this.xDirection * this.speed;
 		this.y = this.y + this.yDirection * this.speed; 
 	  this.checkBounds();
-	  if (this.isColliding()) this.resolveCollide(); 
+	  this.resolveCollide(); 
       c.beginPath();
       c.arc(this.x, this.y, PuckRadius, 0, Math.PI*2, false);
       c.fillStyle = "red";
